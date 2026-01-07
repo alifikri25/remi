@@ -1,4 +1,40 @@
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0f0f13] text-white font-sans;
+  }
+}
+
+/* Custom Scrollbar for Glassmorphism feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
+}
+
+.glass-card {
+  @apply bg-gradient-to-br from-white/10 to-transparent backdrop-blur-md border border-white/10 shadow-2xl;
+}
+
+.text-gradient-fire {
+  @apply bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 bg-clip-text text-transparent;
 }
