@@ -61,7 +61,7 @@ export default function RemiTelukAngsan() {
 
           if (!isNaN(change)) {
             const oldScore = player.score;
-            player.score = Math.max(0, oldScore + change);
+            player.score = oldScore + change;
 
             changes.push({
               id: player.id,
