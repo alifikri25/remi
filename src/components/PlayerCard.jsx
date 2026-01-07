@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { Flame, Crown, Edit2, Plus, GripVertical } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -25,10 +25,26 @@ export const PlayerCard = ({
     onBurn,
     onUpdateName,
     isBurning,
+    isPunching, // New prop
     disabled
 }) => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(player.name);
+
+    // Motion value for animated score
+    const scoreMV = useMotionValue(player.score);
+    const displayScore = useTransform(scoreMV, (latest) => Math.round(latest));
+
+    useEffect(() => {
+        if (isPunching) {
+            // Countdown to 0 when punching starts
+            const controls = animate(scoreMV, 0, { duration: 2, ease: "easeInOut" });
+            return () => controls.stop();
+        } else {
+            // Sync with real score otherwise
+            scoreMV.set(player.score);
+        }
+    }, [isPunching, player.score]);
 
     const isDanger = player.score >= 100;
 
@@ -58,19 +74,86 @@ export const PlayerCard = ({
         }
     };
 
+    // Punch animation variants
+    const puncherVariants = {
+        hidden: { x: "150%", opacity: 0 },
+        enter: { x: 0, opacity: 1, transition: { duration: 0.5, type: "spring" } },
+        punching: {
+            x: [-5, 40, -5], // Back up, punch forward, return
+            transition: {
+                repeat: Infinity,
+                duration: 0.2,
+                repeatType: "mirror"
+            }
+        },
+        exit: { x: "150%", opacity: 0, transition: { duration: 0.3 } }
+    };
+
     return (
         <motion.div
             layout
             variants={burnVariants}
             initial="idle"
-            animate={isBurning ? "burning" : "idle"}
+            animate={
+                isBurning
+                    ? "burning"
+                    : {
+                        opacity: 1,
+                        scale: 1,
+                        // Shake effect when punching
+                        x: isPunching ? [0, -5, 5, -5, 5, 0] : 0,
+                        borderColor: isDanger ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 255, 255, 0.1)",
+                        boxShadow: isDanger
+                            ? "0 0 40px -10px rgba(220, 38, 38, 0.5)"
+                            : "0 10px 30px -10px rgba(0, 0, 0, 0.5)"
+                    }
+            }
+            transition={{
+                duration: isPunching ? 0.1 : 0.5,
+                repeat: isPunching ? Infinity : 0
+            }}
             className={cn(
                 "relative overflow-hidden rounded-3xl backdrop-blur-xl border border-white/10 p-6 transition-all",
-                isDanger ? "bg-red-900/10 shadow-[0_0_40px_-5px_rgba(220,38,38,0.3)] border-red-500/30" : "bg-white/5"
+                isDanger ? "bg-red-900/10" : "bg-white/5"
             )}
         >
             {/* Background Gradients */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+
+            {/* Punisher Character */}
+            <AnimatePresence>
+                {isPunching && (
+                    <motion.div
+                        variants={puncherVariants}
+                        initial="hidden"
+                        animate="enter"
+                        exit="exit"
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex items-center pr-4"
+                        onAnimationComplete={(definition) => {
+                            // When entrance completes, start punching loop. 
+                            // Note: 'animate' prop handling in framer-motion usually overrides this, 
+                            // but we can assume 'enter' just transitions in. 
+                            // Using a secondary motion div for the punch action is often cleaner, 
+                            // but here we can just let app controls handle timing or use keyframes in 'enter' if needed.
+                            // Actually best approach for looping punch logic:
+                        }}
+                    >
+                        <motion.div
+                            animate={{ x: [10, -50, 10] }} // The actual punch motion relative to container
+                            transition={{ repeat: Infinity, duration: 0.15, repeatDelay: 0.1, ease: "linear" }}
+                            className="text-6xl filter drop-shadow-2xl"
+                        >
+                            🥊
+                        </motion.div>
+                        <motion.div
+                            className="text-5xl absolute right-[-20px]"
+                            animate={{ rotate: [0, 10, -10, 0] }}
+                        >
+                            👺
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Leaderboard Badge */}
             <AnimatePresence>
@@ -116,20 +199,18 @@ export const PlayerCard = ({
                     </div>
                 </div>
 
-                {/* Score Display */}
+                {/* Score Display (Updated to use displayScore) */}
                 <div className="text-center py-2 relative">
                     <motion.div
-                        key={player.score}
-                        initial={{ scale: 1.5, filter: "blur(10px)" }}
-                        animate={{ scale: 1, filter: "blur(0px)" }}
+                        key="score-display" // Stable key to prevent unmouting 
                         className={cn(
                             "text-6xl font-black tracking-tighter",
-                            isDanger
+                            isDanger || isPunching
                                 ? "text-transparent bg-clip-text bg-gradient-to-br from-red-400 to-orange-600 drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]"
                                 : "text-white drop-shadow-xl"
                         )}
                     >
-                        {player.score}
+                        <motion.span>{displayScore}</motion.span>
                     </motion.div>
                     {isDanger && (
                         <motion.div
