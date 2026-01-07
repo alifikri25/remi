@@ -28,23 +28,6 @@ export default function App() {
     setHistory((prev) => [{ time: timestamp, entry }, ...prev]);
   };
 
-  const burnPlayer = (playerId) => {
-    const player = players.find((p) => p.id === playerId);
-    if (player.score === 0) return;
-
-    setBurning((prev) => [...prev, playerId]);
-    addHistory(
-      `🔥 ${player.name || "Pemain " + playerId} KEBAKAR MANUAL! (${player.score} → 0)`
-    );
-
-    setTimeout(() => {
-      setPlayers(
-        players.map((p) => (p.id === playerId ? { ...p, score: 0 } : p))
-      );
-      setBurning((prev) => prev.filter(id => id !== playerId));
-    }, 2500);
-  };
-
   const handleInputChange = (id, value) => {
     setRoundInputs({ ...roundInputs, [id]: value });
   };
@@ -56,9 +39,14 @@ export default function App() {
       return;
     }
 
+    // 1. Identify players at risk (score >= 100 BEFORE round starts)
+    const playersAtRisk = players.filter(p => p.score >= 100).map(p => p.id);
+
     const newPlayers = [...players];
     const changes = [];
+    const activeMovingPlayerIds = [];
 
+    // 2. Calculate input changes
     newPlayers.forEach((player) => {
       const input = roundInputs[player.id] || "";
       if (input.toString().trim()) {
@@ -67,9 +55,10 @@ export default function App() {
           const mathExpression = input.toString().replace(/[^0-9+\-*/().]/g, "");
           const change = Function('"use strict"; return (' + mathExpression + ")")();
 
-          if (!isNaN(change)) {
+          if (!isNaN(change) && change !== 0) {
             const oldScore = player.score;
             player.score = oldScore + change;
+            activeMovingPlayerIds.push(player.id);
 
             changes.push({
               id: player.id,
@@ -83,9 +72,62 @@ export default function App() {
       }
     });
 
-    const winners = newPlayers.filter((p) => p.score >= 1000);
-    if (winners.length > 0) {
-      const topWinner = winners.sort((a, b) => b.score - a.score)[0];
+    // 3. Determine who burns
+    // A player burns if they were at risk AND someone else moved
+    const playersToBurn = playersAtRisk.filter(riskId => {
+      const otherPlayersMoved = activeMovingPlayerIds.some(moverId => moverId !== riskId);
+      return otherPlayersMoved;
+    });
+
+    // 4. Handle Winners (Check based on potentially updated scores, but burning happens simultaneously/after?)
+    // Usually burn takes precedence or happens alongside.
+    // Let's apply burns to the state visually via 'burning' state first, then commit the zero score.
+
+    if (playersToBurn.length > 0) {
+      setBurning(playersToBurn);
+      playersToBurn.forEach(burnId => {
+        const victim = players.find(p => p.id === burnId);
+        // Identify who caused the burn (the movers)
+        const perpetrators = changes
+          .filter(c => c.id !== burnId)
+          .map(c => c.name)
+          .join(", ");
+
+        addHistory(`🔥 ${victim.name || "Pemain " + burnId} terbakar otomatis karena ${perpetrators} masuk poin!`);
+      });
+
+      // Delay the actual score reset to allow animation to play
+      setTimeout(() => {
+        setPlayers(prevPlayers => prevPlayers.map(p =>
+          playersToBurn.includes(p.id) ? { ...p, score: 0 } : p
+        ));
+        setBurning([]);
+      }, 2500);
+    }
+
+    // 5. Update State for non-burning (or burning, they will just get overwritten by timeout if they burned)
+    // Actually, we should update the scores immediately so we see the "move" of others, 
+    // and the "burn" animation of the victim.
+    // If a victim also moved, their score currently updates in 'newPlayers' then gets reset to 0 in timeout.
+    // This is correct behavior: shows them trying to move, then burning.
+
+    setPlayers(newPlayers);
+
+    changes.forEach((c) => {
+      // Don't log normal moves for burning players if we want to reduce noise, 
+      // but logging everything is safer for audit.
+      addHistory(
+        `Ronde ${roundNumber} - ${c.name}: ${c.oldScore} → ${c.newScore} (${c.change >= 0 ? "+" : ""}${c.change})`
+      );
+    });
+
+    // Valid Winner Check
+    // A winner is someone >= 1000 AND NOT burning.
+    // If you burn, you can't win this round.
+    const potentialWinners = newPlayers.filter((p) => p.score >= 1000 && !playersToBurn.includes(p.id));
+
+    if (potentialWinners.length > 0) {
+      const topWinner = potentialWinners.sort((a, b) => b.score - a.score)[0];
       setWinner(topWinner);
       addHistory(
         `🏆 PEMENANG: ${topWinner.name || "Pemain " + topWinner.id} dengan ${topWinner.score} point!`
@@ -99,14 +141,6 @@ export default function App() {
       setRoundInputs({});
       return;
     }
-
-    setPlayers(newPlayers);
-
-    changes.forEach((c) => {
-      addHistory(
-        `Ronde ${roundNumber} - ${c.name}: ${c.oldScore} → ${c.newScore} (${c.change >= 0 ? "+" : ""}${c.change})`
-      );
-    });
 
     setRoundNumber(roundNumber + 1);
     setRoundInputs({});
@@ -177,7 +211,6 @@ export default function App() {
               isHighest={player.score === highestScore && player.score > 0}
               inputValue={roundInputs[player.id] || ""}
               onInputChange={(val) => handleInputChange(player.id, val)}
-              onBurn={() => burnPlayer(player.id)}
               onUpdateName={updateName}
               isBurning={burning.includes(player.id)}
               disabled={!!winner}

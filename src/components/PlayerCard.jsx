@@ -135,10 +135,10 @@ export const PlayerCard = ({
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="absolute -bottom-4 left-0 right-0 flex justify-center items-center gap-1 text-red-400/80 text-xs font-bold uppercase tracking-widest"
+                            className="absolute -bottom-4 left-0 right-0 flex justify-center items-center gap-1 text-red-500 text-xs font-bold uppercase tracking-widest"
                         >
                             <Flame size={12} className="animate-pulse" />
-                            Zona Bahaya
+                            Siaga Terbakar
                             <Flame size={12} className="animate-pulse" />
                         </motion.div>
                     )}
@@ -166,22 +166,6 @@ export const PlayerCard = ({
                         </div>
                     )}
                 </div>
-
-                {/* Action Button */}
-                <button
-                    onClick={onBurn}
-                    disabled={disabled || player.score === 0}
-                    className={cn(
-                        "w-full py-3 rounded-xl font-bold text-sm tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden relative group",
-                        disabled || player.score === 0
-                            ? "bg-white/5 text-white/20 cursor-not-allowed"
-                            : "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:scale-[1.02] active:scale-[0.98]"
-                    )}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                    <Flame size={16} className={cn(player.score > 0 && !disabled && "group-hover:animate-bounce")} />
-                    Bakar
-                </button>
             </div>
         </motion.div>
     );
